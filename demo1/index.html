@@ -1,0 +1,1988 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>massive-sprites playground</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page-top: #e7f0f8;
+        --page-bottom: #c9d5e6;
+        --stage-bg-top: #f5f9fe;
+        --stage-bg-bottom: #d9e6f5;
+        --stage-border: rgba(15, 23, 42, 0.26);
+        --panel-bg: rgba(250, 254, 255, 0.7);
+        --panel-border: rgba(15, 23, 42, 0.2);
+        --panel-shadow: rgba(15, 23, 42, 0.22);
+        --canvas-bg: #d8f6c8;
+        --text: #1b1f2a;
+        --muted: #4d5c72;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        font-family: 'Noto Sans JP', sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(900px 520px at 14% 8%, #ffffffcc, transparent 58%),
+          linear-gradient(145deg, var(--page-top), var(--page-bottom));
+      }
+
+      hr {
+        margin: 0.23rem 0.8rem 0.23rem 0.8rem;
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      .app-shell {
+        position: fixed;
+        inset: 0;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 1rem;
+        border-radius: 1rem;
+        border: 1px solid var(--stage-border);
+        overflow: hidden;
+        background: linear-gradient(
+          175deg,
+          var(--stage-bg-top),
+          var(--stage-bg-bottom)
+        );
+        box-shadow: 0 1.25rem 3.5rem rgba(15, 23, 42, 0.24);
+      }
+
+      #main-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: var(--canvas-bg);
+      }
+
+      .overlay-panel {
+        position: absolute;
+        top: 1rem;
+        bottom: 1rem;
+        width: min(30rem, calc(100% - 2rem));
+        padding: 1rem;
+        border-radius: 0.8rem;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(0.2rem);
+        box-shadow: 0 0.75rem 2.5rem var(--panel-shadow);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable both-edges;
+      }
+
+      .panel-left {
+        left: 1rem;
+        display: grid;
+        gap: 0.65rem;
+        align-content: start;
+      }
+
+      .panel-right {
+        right: 1rem;
+        width: min(29rem, calc(100% - 2rem));
+        display: grid;
+        gap: 0.65rem;
+        align-content: start;
+        padding-right: 1.2rem;
+      }
+
+      .control-section {
+        margin: 0;
+        border-radius: 0.55rem;
+        border: 1px solid var(--panel-border);
+        background: rgba(255, 255, 255, 0.3);
+        overflow: visible;
+      }
+
+      .control-section > summary {
+        list-style: none;
+        cursor: pointer;
+        margin: 0;
+        padding: 0.64rem 0.84rem;
+        border-radius: 0.55rem;
+        background: rgba(255, 255, 255, 0.85);
+        font-size: 0.92rem;
+        font-weight: 700;
+        user-select: none;
+      }
+
+      .control-section > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .control-section[open] > summary {
+        border-bottom: 1px solid var(--panel-border);
+        border-radius: 0.55rem;
+        background: rgba(255, 255, 255, 0.85);
+      }
+
+      .section-body {
+        padding: 0.74rem 0.84rem 0.86rem;
+        display: grid;
+        gap: 0.66rem;
+      }
+
+      .section-help {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: clamp(1.2rem, 0.9vw + 0.9rem, 1.7rem);
+        letter-spacing: 0.01em;
+      }
+
+      .panel-intro {
+        margin: 0.6rem 0 0;
+        color: var(--muted);
+        font-size: 0.93rem;
+        line-height: 1.5;
+      }
+
+      .status-note {
+        margin: 1rem 0 0;
+        padding: 0.8rem;
+        border-radius: 0.55rem;
+        border: 1px solid var(--panel-border);
+        background: rgba(255, 255, 255, 0.55);
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+
+      .controls {
+        display: grid;
+        gap: 0.45rem;
+        min-width: 0;
+      }
+
+      .control-row {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr) 4rem;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.88rem;
+      }
+
+      .control-row.grid-size-row {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr) 7rem;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.88rem;
+      }
+
+      .control-row label {
+        text-align: left;
+        font-weight: 600;
+      }
+
+      .control-row input[type='range'] {
+        max-width: 100%;
+      }
+
+      .control-row span {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        padding-right: 0.75rem;
+      }
+
+      .control-row.control-row-button button {
+        grid-column: 2 / 4;
+        justify-self: stretch;
+        padding: 0.35rem 0.5rem;
+        border-radius: 0.4rem;
+        border: 1px solid rgba(40, 46, 60, 0.25);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .control-row.control-row-button button:hover {
+        background: rgba(255, 255, 255, 0.98);
+      }
+
+      .control-row.control-row-button button:active {
+        transform: translateY(1px);
+      }
+
+      .interpolation-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.66rem;
+        font-size: 0.88rem;
+        min-width: 0;
+      }
+
+      .interpolation-card h3 {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 600;
+      }
+
+      .radio-group {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .radio-group label,
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+      }
+
+      .precision-status {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .select-row {
+        display: grid;
+        gap: 0.4rem;
+        font-weight: 500;
+        min-width: 0;
+      }
+
+      .select-row select {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        field-sizing: fixed;
+        padding: 0.35rem 0.4rem;
+        border-radius: 0.4rem;
+        border: 1px solid rgba(40, 46, 60, 0.25);
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--text);
+      }
+
+      .stats-grid {
+        display: grid;
+        gap: 0.45rem;
+        font-size: 0.85rem;
+      }
+
+      .stats-groups {
+        display: grid;
+        gap: 0.6rem;
+      }
+
+      .stats-group {
+        border: 1px solid rgba(40, 46, 60, 0.18);
+        border-radius: 0.6rem;
+        padding: 0.35rem 0.6rem 0.5rem;
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      .stats-group > summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: var(--text);
+      }
+
+      .stats-group .stats-grid {
+        margin-top: 0.35rem;
+      }
+
+      .stats-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .stats-label {
+        color: var(--muted);
+      }
+
+      .stats-value {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-family: monospace;
+      }
+
+      @media (max-width: 1180px) {
+        .panel-left {
+          width: min(20rem, calc(100% - 2rem));
+        }
+
+        .panel-right {
+          width: min(24rem, calc(100% - 2rem));
+        }
+      }
+
+      @media (max-width: 960px) {
+        .overlay-panel {
+          left: 0.75rem;
+          right: 0.75rem;
+          width: auto;
+          padding: 0.8rem;
+        }
+
+        .panel-left {
+          top: 0.75rem;
+          bottom: auto;
+          max-height: 34vh;
+        }
+
+        .panel-right {
+          top: auto;
+          bottom: 0.75rem;
+          max-height: 50vh;
+          padding-right: 0.8rem;
+        }
+
+        .control-section > summary {
+          padding: 0.58rem 0.72rem;
+        }
+
+        .section-body {
+          padding: 0.64rem 0.72rem 0.74rem;
+        }
+
+        .control-row {
+          grid-template-columns: 6.4rem minmax(0, 1fr);
+          gap: 0.4rem;
+        }
+
+        .control-row span {
+          grid-column: 1 / -1;
+          text-align: left;
+          padding-left: 6.4rem;
+          padding-right: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="stage" id="demo-stage">
+        <canvas id="main-canvas"></canvas>
+
+        <aside class="overlay-panel panel-left" id="status-panel">
+          <h1 class="panel-title">massive-sprites playground</h1>
+          <p class="panel-intro">
+            The canvas is intentionally inset by 1rem from the viewport so the
+            clipping boundary remains visible while testing sprite behavior.
+          </p>
+
+          <details class="control-section" id="section-sprites" open>
+            <summary>Sprites</summary>
+            <div class="section-body">
+              <div class="controls" id="sprite-controls">
+                <div class="control-row grid-size-row">
+                  <label for="sprite-grid">Sprite Count</label>
+                  <input id="sprite-grid" type="range" />
+                  <span id="sprite-grid-value">4 sprites</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-camera" open>
+            <summary>Camera</summary>
+            <div class="section-body">
+              <div class="controls" id="camera-controls">
+                <div class="control-row">
+                  <label for="camera-pos-x">Position X</label>
+                  <input id="camera-pos-x" type="range" />
+                  <span id="camera-pos-x-value">0</span>
+                </div>
+                <div class="control-row">
+                  <label for="camera-pos-y">Position Y</label>
+                  <input id="camera-pos-y" type="range" />
+                  <span id="camera-pos-y-value">0</span>
+                </div>
+                <div class="control-row">
+                  <label for="camera-pos-z">Position Z</label>
+                  <input id="camera-pos-z" type="range" />
+                  <span id="camera-pos-z-value">0</span>
+                </div>
+                <hr />
+                <div class="control-row">
+                  <label for="camera-yaw">Yaw</label>
+                  <input id="camera-yaw" type="range" />
+                  <span id="camera-yaw-value">0</span>
+                </div>
+                <div class="control-row">
+                  <label for="camera-pitch">Pitch</label>
+                  <input id="camera-pitch" type="range" />
+                  <span id="camera-pitch-value">0</span>
+                </div>
+                <div class="control-row">
+                  <label for="camera-roll">Roll</label>
+                  <input id="camera-roll" type="range" />
+                  <span id="camera-roll-value">0</span>
+                </div>
+                <hr />
+                <div class="control-row">
+                  <label for="camera-fov">FOV</label>
+                  <input id="camera-fov" type="range" />
+                  <span id="camera-fov-value">0</span>
+                </div>
+                <div class="control-row control-row-button">
+                  <span></span>
+                  <button id="camera-reset" type="button">Reset</button>
+                  <span></span>
+                </div>
+              </div>
+              <hr />
+              <label class="select-row" for="camera-interpolation">
+                Camera Interpolation
+                <select id="camera-interpolation">
+                  <option value="none">None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid" selected>
+                    Sigmoid (k=14,mid=0.35)
+                  </option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-interaction-interpolation">
+                Camera Interpolation (Mouse)
+                <select id="camera-interaction-interpolation">
+                  <option value="none">None</option>
+                  <option value="linear" selected>Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="camera-feedforward" type="checkbox" />
+                Camera Feedforward
+              </label>
+              <label class="checkbox-row">
+                <input id="camera-interaction" type="checkbox" checked />
+                Camera Interaction
+              </label>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-control">
+            <summary>Control</summary>
+            <div class="section-body">
+              <div class="stats-grid">
+                <div class="stats-row">
+                  <span class="stats-label">Last Pick</span>
+                  <span class="stats-value" id="stats-pick">-</span>
+                </div>
+              </div>
+              <p class="section-help">
+                Modifiers: Ignore = don't care, Require = must be pressed, Block
+                = must NOT be pressed.
+              </p>
+              <label class="select-row" for="camera-pan-button">
+                Pan Drag Button
+                <select id="camera-pan-button">
+                  <option value="left">Left</option>
+                  <option value="middle">Middle</option>
+                  <option value="right" selected>Right</option>
+                  <option value="back">Back</option>
+                  <option value="forward">Forward</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-pan-alt">
+                Pan Alt
+                <select id="camera-pan-alt">
+                  <option value="ignore" selected>Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-pan-shift">
+                Pan Shift
+                <select id="camera-pan-shift">
+                  <option value="ignore" selected>Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-pan-ctrl">
+                Pan Ctrl
+                <select id="camera-pan-ctrl">
+                  <option value="ignore">Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block" selected>Block</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-pan-meta">
+                Pan Meta
+                <select id="camera-pan-meta">
+                  <option value="ignore" selected>Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <hr />
+              <label class="select-row" for="camera-rotate-button">
+                Rotation Drag Button
+                <select id="camera-rotate-button">
+                  <option value="left">Left</option>
+                  <option value="middle">Middle</option>
+                  <option value="right" selected>Right</option>
+                  <option value="back">Back</option>
+                  <option value="forward">Forward</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-rotate-alt">
+                Rotation Alt
+                <select id="camera-rotate-alt">
+                  <option value="ignore" selected>Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-rotate-shift">
+                Rotation Shift
+                <select id="camera-rotate-shift">
+                  <option value="ignore" selected>Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-rotate-ctrl">
+                Rotation Ctrl
+                <select id="camera-rotate-ctrl">
+                  <option value="ignore">Ignore</option>
+                  <option value="require" selected>Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+              <label class="select-row" for="camera-rotate-meta">
+                Rotation Meta
+                <select id="camera-rotate-meta">
+                  <option value="ignore" selected>Ignore</option>
+                  <option value="require">Require</option>
+                  <option value="block">Block</option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-stats" open>
+            <summary>Stats</summary>
+            <div class="section-body">
+              <div class="stats-groups">
+                <details class="stats-group" open>
+                  <summary>Summary</summary>
+                  <div class="stats-grid">
+                    <div class="stats-row">
+                      <span class="stats-label">FPS</span>
+                      <span class="stats-value" id="stats-fps">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Frame Interval</span>
+                      <span class="stats-value" id="stats-frame-ms">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Total Canvas Render Time</span>
+                      <span class="stats-value" id="stats-canvas-render-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Total Sprite Render Time</span>
+                      <span class="stats-value" id="stats-sprite-render-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Total WASM Compute Time</span>
+                      <span class="stats-value" id="stats-wasm-ms">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Non-WASM Compute Time</span>
+                      <span class="stats-value" id="stats-cpu-ms">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM/Non-WASM Ratio</span>
+                      <span class="stats-value" id="stats-wasm-ratio">-</span>
+                    </div>
+                  </div>
+                </details>
+                <details class="stats-group">
+                  <summary>WASM Compute</summary>
+                  <div class="stats-grid">
+                    <div class="stats-row">
+                      <span class="stats-label"
+                        >WASM Compute Total (Internal)</span
+                      >
+                      <span class="stats-value" id="stats-wasm-internal-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Compute Projection</span>
+                      <span class="stats-value" id="stats-wasm-projection-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Sprite Anim</span>
+                      <span class="stats-value" id="stats-wasm-sprite-anim-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Element Anim</span>
+                      <span class="stats-value" id="stats-wasm-element-anim-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Pivot Resolve</span>
+                      <span class="stats-value" id="stats-wasm-pivot-resolve-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Auto Direction</span>
+                      <span class="stats-value" id="stats-wasm-auto-rotation-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Collect Entries</span>
+                      <span
+                        class="stats-value"
+                        id="stats-wasm-collect-entries-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Sort Entries</span>
+                      <span class="stats-value" id="stats-wasm-sort-entries-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Write Output</span>
+                      <span class="stats-value" id="stats-wasm-write-output-ms"
+                        >-</span
+                      >
+                    </div>
+                  </div>
+                </details>
+                <details class="stats-group">
+                  <summary>Command Apply</summary>
+                  <div class="stats-grid">
+                    <div class="stats-row">
+                      <span class="stats-label">Command Apply Time</span>
+                      <span class="stats-value" id="stats-command-apply-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Command Apply Call</span>
+                      <span class="stats-value" id="stats-command-apply-call-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Command Apply JS</span>
+                      <span class="stats-value" id="stats-command-apply-js-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Apply Total</span>
+                      <span class="stats-value" id="stats-command-apply-wasm-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Apply Loop</span>
+                      <span
+                        class="stats-value"
+                        id="stats-command-apply-wasm-loop-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Sync Slots</span>
+                      <span
+                        class="stats-value"
+                        id="stats-command-apply-wasm-sync-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Apply Clear</span>
+                      <span
+                        class="stats-value"
+                        id="stats-command-apply-wasm-clear-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Command Count</span>
+                      <span class="stats-value" id="stats-command-count"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">UpdateSprite Commands</span>
+                      <span class="stats-value" id="stats-update-command-count"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Update Frame Ratio</span>
+                      <span class="stats-value" id="stats-update-frame-ratio"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Update Queue Delay</span>
+                      <span class="stats-value" id="stats-update-queue-delay"
+                        >-</span
+                      >
+                    </div>
+                  </div>
+                </details>
+                <details class="stats-group">
+                  <summary>Draw Pipeline</summary>
+                  <div class="stats-grid">
+                    <div class="stats-row">
+                      <span class="stats-label">Ensure Render Buffers</span>
+                      <span
+                        class="stats-value"
+                        id="stats-ensure-render-buffers-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Draw Setup</span>
+                      <span class="stats-value" id="stats-draw-setup-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Vertex Upload</span>
+                      <span class="stats-value" id="stats-vertex-upload-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Draw Loop</span>
+                      <span class="stats-value" id="stats-draw-loop-ms">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Texture Bind Time</span>
+                      <span class="stats-value" id="stats-texture-bind-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Opacity Uniform Time</span>
+                      <span class="stats-value" id="stats-opacity-uniform-ms"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Draw Call Time</span>
+                      <span class="stats-value" id="stats-draw-call-ms">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Active Elements</span>
+                      <span class="stats-value" id="stats-active-elements"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Draw Elements</span>
+                      <span class="stats-value" id="stats-draw-calls">-</span>
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Texture Binds</span>
+                      <span class="stats-value" id="stats-texture-binds"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">Skipped Draws</span>
+                      <span class="stats-value" id="stats-skipped-draws"
+                        >-</span
+                      >
+                    </div>
+                    <div class="stats-row">
+                      <span class="stats-label">WASM Buffer Resizes</span>
+                      <span class="stats-value" id="stats-buffer-resizes"
+                        >-</span
+                      >
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <p class="section-help">
+                Rolling averages are shown over approximately one second.
+              </p>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-runtime">
+            <summary>Runtime</summary>
+            <div class="section-body">
+              <label class="checkbox-row">
+                <input id="wasm-f64" type="checkbox" />
+                Use float64 WASM input
+              </label>
+              <label class="checkbox-row">
+                <input id="runtime-pick-mask" type="checkbox" checked />
+                Pick mask
+              </label>
+              <label class="select-row" for="scaling-limit-preset">
+                Distance Scaling Limit
+                <select id="scaling-limit-preset">
+                  <option value="unlimited" selected>Unlimited</option>
+                  <option value="near">Near Clamp (6000-120000)</option>
+                  <option value="balanced">
+                    Balanced Clamp (12000-240000)
+                  </option>
+                  <option value="wide">Wide Clamp (24000-480000)</option>
+                </select>
+              </label>
+              <hr />
+              <label class="checkbox-row">
+                <input id="sprites-upscaling-to-pot" type="checkbox" checked />
+                Upscaling texture to POT (2^n)
+              </label>
+              <div class="control-row">
+                <label for="atlas-width">Atlas Width</label>
+                <input
+                  id="atlas-width"
+                  type="number"
+                  min="256"
+                  step="64"
+                  value="8192"
+                />
+                <span>px</span>
+              </div>
+              <div class="control-row">
+                <label for="atlas-height">Atlas Height</label>
+                <input
+                  id="atlas-height"
+                  type="number"
+                  min="256"
+                  step="64"
+                  value="8192"
+                />
+                <span>px</span>
+              </div>
+              <div class="control-row">
+                <label>Atlas Resolved</label>
+                <span id="atlas-resolved">-</span>
+                <span></span>
+              </div>
+              <div class="control-row">
+                <label>Max Texture</label>
+                <span id="atlas-max-size">-</span>
+                <span>px</span>
+              </div>
+              <label class="select-row" for="texture-min-filter">
+                Texture Min Filter
+                <select id="texture-min-filter">
+                  <option value="nearest">Nearest</option>
+                  <option value="linear">Linear</option>
+                  <option value="nearestMipmapNearest">
+                    Nearest Mipmap Nearest
+                  </option>
+                  <option value="linearMipmapNearest">
+                    Linear Mipmap Nearest
+                  </option>
+                  <option value="nearestMipmapLinear">
+                    Nearest Mipmap Linear
+                  </option>
+                  <option value="linearMipmapLinear" selected>
+                    Linear Mipmap Linear
+                  </option>
+                </select>
+              </label>
+              <label class="select-row" for="texture-mag-filter">
+                Texture Mag Filter
+                <select id="texture-mag-filter">
+                  <option value="nearest">Nearest</option>
+                  <option value="linear" selected>Linear</option>
+                </select>
+              </label>
+              <label class="select-row" for="texture-wrap-s">
+                Texture Wrap S
+                <select id="texture-wrap-s">
+                  <option value="clampToEdge" selected>Clamp To Edge</option>
+                  <option value="repeat">Repeat</option>
+                  <option value="mirroredRepeat">Mirrored Repeat</option>
+                </select>
+              </label>
+              <label class="select-row" for="texture-wrap-t">
+                Texture Wrap T
+                <select id="texture-wrap-t">
+                  <option value="clampToEdge" selected>Clamp To Edge</option>
+                  <option value="repeat">Repeat</option>
+                  <option value="mirroredRepeat">Mirrored Repeat</option>
+                </select>
+              </label>
+              <label class="select-row" for="texture-npot-policy">
+                NPOT Policy
+                <select id="texture-npot-policy">
+                  <option value="fallback" selected>Fallback</option>
+                  <option value="error">Error</option>
+                </select>
+              </label>
+            </div>
+          </details>
+        </aside>
+
+        <aside class="overlay-panel panel-right" id="control-panel">
+          <details class="control-section" id="section-move" open>
+            <summary>Sprite</summary>
+            <div
+              class="section-body interpolation-card"
+              id="interpolation-controls"
+            >
+              <div class="controls">
+                <div class="control-row">
+                  <label for="move-speed">Moving Speed</label>
+                  <input id="move-speed" type="range" />
+                  <span id="move-speed-value">1.0x</span>
+                </div>
+              </div>
+              <label class="select-row" for="interp-move-easing-select">
+                Moving Interpolation
+                <select id="interp-move-easing-select">
+                  <option value="none">None</option>
+                  <option value="linear" selected>Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="interp-move-feedforward" type="checkbox" />
+                Moving Feedforward
+              </label>
+              <hr />
+              <div class="controls">
+                <div class="control-row">
+                  <label for="sprite-visibility-distance"
+                    >Pseudo LOD Distance</label
+                  >
+                  <input id="sprite-visibility-distance" type="range" />
+                  <span id="sprite-visibility-distance-value">Disabled</span>
+                </div>
+                <div class="control-row">
+                  <label for="sprite-opacity">Opacity</label>
+                  <input id="sprite-opacity" type="range" />
+                  <span id="sprite-opacity-value">1.00</span>
+                </div>
+              </div>
+              <label class="select-row" for="sprite-opacity-interpolation">
+                Opacity Interpolation
+                <select id="sprite-opacity-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="sprite-opacity-feedforward" type="checkbox" />
+                Opacity Feedforward
+              </label>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-element-0">
+            <summary>Sprite Element 0</summary>
+            <div class="section-body interpolation-card">
+              <label class="select-row" for="element-0-image-mode">
+                Image / Label
+                <select id="element-0-image-mode">
+                  <option value="image" selected>Image</option>
+                  <option value="label">Label</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-0-mode">
+                Shift Mode
+                <select id="element-0-mode">
+                  <option value="none" selected>None</option>
+                  <option value="fixed">Fixed</option>
+                  <option value="orbit">Orbit</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-0-shift-interpolation">
+                Shift Interpolation
+                <select id="element-0-shift-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-0-shift-feedforward" type="checkbox" />
+                Shift Feedforward
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-0-origin-use-resolved-anchor"
+                  type="checkbox"
+                />
+                Use Resolved Anchor
+              </label>
+              <hr />
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-rotation-speed">Rotation Speed</label>
+                  <input id="element-0-rotation-speed" type="range" />
+                  <span id="element-0-rotation-speed-value">0.0x</span>
+                </div>
+              </div>
+              <label class="select-row" for="element-0-rotation">
+                Rotation
+                <select id="element-0-rotation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-0-rotation-feedforward" type="checkbox" />
+                Rotation Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-0-auto-direction-mode">
+                Auto Direction Mode
+                <select id="element-0-auto-direction-mode">
+                  <option value="none" selected>None</option>
+                  <option value="rotation">Rotation</option>
+                  <option value="flipping">Flipping</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-0-auto-direction-space">
+                Auto Direction Space
+                <select id="element-0-auto-direction-space">
+                  <option value="world" selected>World</option>
+                  <option value="parent_local">Parent Local</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-0-auto-direction-shift-angle-rotation"
+                  type="checkbox"
+                />
+                Auto Shift Angle Rotation
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-auto-direction-min-distance">
+                    Auto Direction Min Distance
+                  </label>
+                  <input
+                    id="element-0-auto-direction-min-distance"
+                    type="range"
+                  />
+                  <span id="element-0-auto-direction-min-distance-value"
+                    >0.0</span
+                  >
+                </div>
+              </div>
+              <label class="checkbox-row">
+                <input id="element-0-auto-direction-flip-x" type="checkbox" />
+                Auto Flip X
+              </label>
+              <label class="checkbox-row">
+                <input id="element-0-auto-direction-flip-y" type="checkbox" />
+                Auto Flip Y
+              </label>
+              <label
+                class="select-row"
+                for="element-0-auto-direction-interpolation"
+              >
+                Auto Direction Interpolation
+                <select id="element-0-auto-direction-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-0-auto-direction-feedforward"
+                  type="checkbox"
+                />
+                Auto Direction Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-0-opacity">
+                Opacity
+                <select id="element-0-opacity">
+                  <option value="none" selected>None</option>
+                  <option value="wave">Wave</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-0-opacity-interpolation">
+                Opacity Interpolation
+                <select id="element-0-opacity-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-0-opacity-feedforward" type="checkbox" />
+                Opacity Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-0-render-mode">
+                Render Mode
+                <select id="element-0-render-mode">
+                  <option value="surface" selected>Surface</option>
+                  <option value="billboard">Billboard</option>
+                  <option value="billboard_perspective">
+                    Billboard (Perspective)
+                  </option>
+                </select>
+              </label>
+              <label class="select-row" for="element-0-scale-interpolation">
+                Scale Interpolation
+                <select id="element-0-scale-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-0-scale-feedforward" type="checkbox" />
+                Scale Feedforward
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-scale">Scale</label>
+                  <input id="element-0-scale" type="range" />
+                  <span id="element-0-scale-value">1.00x</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-anchor-x">Anchor X</label>
+                  <input id="element-0-anchor-x" type="range" />
+                  <span id="element-0-anchor-x-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-0-anchor-y">Anchor Y</label>
+                  <input id="element-0-anchor-y" type="range" />
+                  <span id="element-0-anchor-y-value">0.00</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-leaderline-width"
+                    >Leaderline Width</label
+                  >
+                  <input id="element-0-leaderline-width" type="range" />
+                  <span id="element-0-leaderline-width-value">0.0</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-0-leaderline-hue">Leaderline Hue</label>
+                  <input id="element-0-leaderline-hue" type="range" />
+                  <span id="element-0-leaderline-hue-value">30°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-border-width">Border Width</label>
+                  <input id="element-0-border-width" type="range" />
+                  <span id="element-0-border-width-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-0-border-hue">Border Hue</label>
+                  <input id="element-0-border-hue" type="range" />
+                  <span id="element-0-border-hue-value">350°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-0-layer">Layer</label>
+                  <input id="element-0-layer" type="range" />
+                  <span id="element-0-layer-value">3</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-0-order">Order</label>
+                  <input id="element-0-order" type="range" />
+                  <span id="element-0-order-value">0</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-element-1">
+            <summary>Sprite Element 1</summary>
+            <div class="section-body interpolation-card">
+              <label class="select-row" for="element-1-image-mode">
+                Image / Label
+                <select id="element-1-image-mode">
+                  <option value="image" selected>Image</option>
+                  <option value="label">Label</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-1-mode">
+                Shift Mode
+                <select id="element-1-mode">
+                  <option value="none" selected>None</option>
+                  <option value="fixed">Fixed</option>
+                  <option value="orbit">Orbit</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-1-shift-interpolation">
+                Shift Interpolation
+                <select id="element-1-shift-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-1-shift-feedforward" type="checkbox" />
+                Shift Feedforward
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-1-origin-use-resolved-anchor"
+                  type="checkbox"
+                />
+                Use Resolved Anchor
+              </label>
+              <hr />
+              <div class="controls">
+                <div class="control-row rotation-speed-row">
+                  <label for="element-1-rotation-speed">Rotation Speed</label>
+                  <input id="element-1-rotation-speed" type="range" />
+                  <span id="element-1-rotation-speed-value">0.0x</span>
+                </div>
+              </div>
+              <label class="select-row" for="element-1-rotation">
+                Rotation
+                <select id="element-1-rotation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-1-rotation-feedforward" type="checkbox" />
+                Rotation Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-1-auto-direction-mode">
+                Auto Direction Mode
+                <select id="element-1-auto-direction-mode">
+                  <option value="none" selected>None</option>
+                  <option value="rotation">Rotation</option>
+                  <option value="flipping">Flipping</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-1-auto-direction-space">
+                Auto Direction Space
+                <select id="element-1-auto-direction-space">
+                  <option value="world" selected>World</option>
+                  <option value="parent_local">Parent Local</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-1-auto-direction-shift-angle-rotation"
+                  type="checkbox"
+                />
+                Auto Shift Angle Rotation
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-1-auto-direction-min-distance">
+                    Auto Direction Min Distance
+                  </label>
+                  <input
+                    id="element-1-auto-direction-min-distance"
+                    type="range"
+                  />
+                  <span id="element-1-auto-direction-min-distance-value"
+                    >0.0</span
+                  >
+                </div>
+              </div>
+              <label class="checkbox-row">
+                <input id="element-1-auto-direction-flip-x" type="checkbox" />
+                Auto Flip X
+              </label>
+              <label class="checkbox-row">
+                <input id="element-1-auto-direction-flip-y" type="checkbox" />
+                Auto Flip Y
+              </label>
+              <label
+                class="select-row"
+                for="element-1-auto-direction-interpolation"
+              >
+                Auto Direction Interpolation
+                <select id="element-1-auto-direction-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-1-auto-direction-feedforward"
+                  type="checkbox"
+                />
+                Auto Direction Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-1-opacity">
+                Opacity
+                <select id="element-1-opacity">
+                  <option value="none" selected>None</option>
+                  <option value="wave">Wave</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-1-opacity-interpolation">
+                Opacity Interpolation
+                <select id="element-1-opacity-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-1-opacity-feedforward" type="checkbox" />
+                Opacity Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-1-render-mode">
+                Render Mode
+                <select id="element-1-render-mode">
+                  <option value="surface" selected>Surface</option>
+                  <option value="billboard">Billboard</option>
+                  <option value="billboard_perspective">
+                    Billboard (Perspective)
+                  </option>
+                </select>
+              </label>
+              <label class="select-row" for="element-1-scale-interpolation">
+                Scale Interpolation
+                <select id="element-1-scale-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-1-scale-feedforward" type="checkbox" />
+                Scale Feedforward
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-1-scale">Scale</label>
+                  <input id="element-1-scale" type="range" />
+                  <span id="element-1-scale-value">1.00x</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-1-anchor-x">Anchor X</label>
+                  <input id="element-1-anchor-x" type="range" />
+                  <span id="element-1-anchor-x-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-1-anchor-y">Anchor Y</label>
+                  <input id="element-1-anchor-y" type="range" />
+                  <span id="element-1-anchor-y-value">0.00</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-1-leaderline-width"
+                    >Leaderline Width</label
+                  >
+                  <input id="element-1-leaderline-width" type="range" />
+                  <span id="element-1-leaderline-width-value">0.0</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-1-leaderline-hue">Leaderline Hue</label>
+                  <input id="element-1-leaderline-hue" type="range" />
+                  <span id="element-1-leaderline-hue-value">140°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-1-border-width">Border Width</label>
+                  <input id="element-1-border-width" type="range" />
+                  <span id="element-1-border-width-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-1-border-hue">Border Hue</label>
+                  <input id="element-1-border-hue" type="range" />
+                  <span id="element-1-border-hue-value">80°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-1-layer">Layer</label>
+                  <input id="element-1-layer" type="range" />
+                  <span id="element-1-layer-value">3</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-1-order">Order</label>
+                  <input id="element-1-order" type="range" />
+                  <span id="element-1-order-value">0</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-element-2">
+            <summary>Sprite Element 2</summary>
+            <div class="section-body interpolation-card">
+              <label class="select-row" for="element-2-image-mode">
+                Image / Label
+                <select id="element-2-image-mode">
+                  <option value="image" selected>Image</option>
+                  <option value="label">Label</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-2-mode">
+                Shift Mode
+                <select id="element-2-mode">
+                  <option value="none" selected>None</option>
+                  <option value="fixed">Fixed</option>
+                  <option value="orbit">Orbit</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-2-shift-interpolation">
+                Shift Interpolation
+                <select id="element-2-shift-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-2-shift-feedforward" type="checkbox" />
+                Shift Feedforward
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-2-origin-use-resolved-anchor"
+                  type="checkbox"
+                />
+                Use Resolved Anchor
+              </label>
+              <hr />
+              <div class="controls">
+                <div class="control-row rotation-speed-row">
+                  <label for="element-2-rotation-speed">Rotation Speed</label>
+                  <input id="element-2-rotation-speed" type="range" />
+                  <span id="element-2-rotation-speed-value">0.0x</span>
+                </div>
+              </div>
+              <label class="select-row" for="element-2-rotation">
+                Rotation
+                <select id="element-2-rotation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-2-rotation-feedforward" type="checkbox" />
+                Rotation Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-2-auto-direction-mode">
+                Auto Direction Mode
+                <select id="element-2-auto-direction-mode">
+                  <option value="none" selected>None</option>
+                  <option value="rotation">Rotation</option>
+                  <option value="flipping">Flipping</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-2-auto-direction-space">
+                Auto Direction Space
+                <select id="element-2-auto-direction-space">
+                  <option value="world" selected>World</option>
+                  <option value="parent_local">Parent Local</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-2-auto-direction-shift-angle-rotation"
+                  type="checkbox"
+                />
+                Auto Shift Angle Rotation
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-2-auto-direction-min-distance">
+                    Auto Direction Min Distance
+                  </label>
+                  <input
+                    id="element-2-auto-direction-min-distance"
+                    type="range"
+                  />
+                  <span id="element-2-auto-direction-min-distance-value"
+                    >0.0</span
+                  >
+                </div>
+              </div>
+              <label class="checkbox-row">
+                <input id="element-2-auto-direction-flip-x" type="checkbox" />
+                Auto Flip X
+              </label>
+              <label class="checkbox-row">
+                <input id="element-2-auto-direction-flip-y" type="checkbox" />
+                Auto Flip Y
+              </label>
+              <label
+                class="select-row"
+                for="element-2-auto-direction-interpolation"
+              >
+                Auto Direction Interpolation
+                <select id="element-2-auto-direction-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input
+                  id="element-2-auto-direction-feedforward"
+                  type="checkbox"
+                />
+                Auto Direction Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-2-opacity">
+                Opacity
+                <select id="element-2-opacity">
+                  <option value="none" selected>None</option>
+                  <option value="wave">Wave</option>
+                </select>
+              </label>
+              <label class="select-row" for="element-2-opacity-interpolation">
+                Opacity Interpolation
+                <select id="element-2-opacity-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-2-opacity-feedforward" type="checkbox" />
+                Opacity Feedforward
+              </label>
+              <hr />
+              <label class="select-row" for="element-2-render-mode">
+                Render Mode
+                <select id="element-2-render-mode">
+                  <option value="surface" selected>Surface</option>
+                  <option value="billboard">Billboard</option>
+                  <option value="billboard_perspective">
+                    Billboard (Perspective)
+                  </option>
+                </select>
+              </label>
+              <label class="select-row" for="element-2-scale-interpolation">
+                Scale Interpolation
+                <select id="element-2-scale-interpolation">
+                  <option value="none" selected>None</option>
+                  <option value="linear">Linear</option>
+                  <option value="sigmoid">Sigmoid (k=14,mid=0.35)</option>
+                  <option value="ease">Ease (out, power=9)</option>
+                  <option value="exponential">Exponential (in, exp=4)</option>
+                  <option value="quadratic">Quadratic (out)</option>
+                  <option value="cubic">Cubic (in)</option>
+                  <option value="sine">Sine (out, amplitude=1)</option>
+                  <option value="bounce">Bounce (bounces=2, decay=0.1)</option>
+                  <option value="back">Back (overshoot=2)</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="element-2-scale-feedforward" type="checkbox" />
+                Scale Feedforward
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-2-scale">Scale</label>
+                  <input id="element-2-scale" type="range" />
+                  <span id="element-2-scale-value">1.00x</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-2-anchor-x">Anchor X</label>
+                  <input id="element-2-anchor-x" type="range" />
+                  <span id="element-2-anchor-x-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-2-anchor-y">Anchor Y</label>
+                  <input id="element-2-anchor-y" type="range" />
+                  <span id="element-2-anchor-y-value">0.00</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-2-leaderline-width"
+                    >Leaderline Width</label
+                  >
+                  <input id="element-2-leaderline-width" type="range" />
+                  <span id="element-2-leaderline-width-value">0.0</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-2-leaderline-hue">Leaderline Hue</label>
+                  <input id="element-2-leaderline-hue" type="range" />
+                  <span id="element-2-leaderline-hue-value">220°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-2-border-width">Border Width</label>
+                  <input id="element-2-border-width" type="range" />
+                  <span id="element-2-border-width-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-2-border-hue">Border Hue</label>
+                  <input id="element-2-border-hue" type="range" />
+                  <span id="element-2-border-hue-value">200°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="element-2-layer">Layer</label>
+                  <input id="element-2-layer" type="range" />
+                  <span id="element-2-layer-value">3</span>
+                </div>
+                <div class="control-row">
+                  <label for="element-2-order">Order</label>
+                  <input id="element-2-order" type="range" />
+                  <span id="element-2-order-value">0</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-polyline-outer">
+            <summary>Polyline Outer</summary>
+            <div class="section-body interpolation-card">
+              <div class="controls">
+                <div class="control-row">
+                  <label for="polyline-outer-opacity">Opacity</label>
+                  <input id="polyline-outer-opacity" type="range" />
+                  <span id="polyline-outer-opacity-value">1.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="polyline-outer-layer">Layer</label>
+                  <input id="polyline-outer-layer" type="range" />
+                  <span id="polyline-outer-layer-value">1</span>
+                </div>
+                <div class="control-row">
+                  <label for="polyline-outer-hue">Hue</label>
+                  <input id="polyline-outer-hue" type="range" />
+                  <span id="polyline-outer-hue-value">10°</span>
+                </div>
+              </div>
+              <label class="select-row" for="polyline-outer-join-correction">
+                Join Correction
+                <select id="polyline-outer-join-correction">
+                  <option value="none">None</option>
+                  <option value="fan0">Fan 0</option>
+                  <option value="fan1">Fan 1</option>
+                  <option value="fan5" selected>Fan 5</option>
+                </select>
+              </label>
+              <label class="select-row" for="polyline-outer-cap-correction">
+                Cap Correction
+                <select id="polyline-outer-cap-correction">
+                  <option value="none">None</option>
+                  <option value="fan0">Fan 0</option>
+                  <option value="fan1">Fan 1</option>
+                  <option value="fan5" selected>Fan 5</option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-polyline-random">
+            <summary>Polyline Random</summary>
+            <div class="section-body interpolation-card">
+              <div class="controls">
+                <div class="control-row">
+                  <label for="polyline-random-opacity">Opacity</label>
+                  <input id="polyline-random-opacity" type="range" />
+                  <span id="polyline-random-opacity-value">1.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="polyline-random-layer">Layer</label>
+                  <input id="polyline-random-layer" type="range" />
+                  <span id="polyline-random-layer-value">2</span>
+                </div>
+                <div class="control-row">
+                  <label for="polyline-random-hue">Hue</label>
+                  <input id="polyline-random-hue" type="range" />
+                  <span id="polyline-random-hue-value">200°</span>
+                </div>
+              </div>
+              <label class="select-row" for="polyline-random-join-correction">
+                Join Correction
+                <select id="polyline-random-join-correction">
+                  <option value="none">None</option>
+                  <option value="fan0">Fan 0</option>
+                  <option value="fan1">Fan 1</option>
+                  <option value="fan5" selected>Fan 5</option>
+                </select>
+              </label>
+              <label class="select-row" for="polyline-random-cap-correction">
+                Cap Correction
+                <select id="polyline-random-cap-correction">
+                  <option value="none">None</option>
+                  <option value="fan0">Fan 0</option>
+                  <option value="fan1">Fan 1</option>
+                  <option value="fan5" selected>Fan 5</option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <details class="control-section" id="section-backdrop">
+            <summary>Backdrop</summary>
+            <div class="section-body interpolation-card">
+              <p class="section-help">
+                Load an image and place it as a fixed background sprite at the
+                world center. Backdrop always uses the lowest layer.
+              </p>
+              <input id="backdrop-file" type="file" accept="image/*" hidden />
+              <div class="controls">
+                <div class="control-row control-row-button">
+                  <span></span>
+                  <button id="backdrop-load" type="button">Load Image</button>
+                  <span></span>
+                </div>
+                <div class="control-row control-row-button">
+                  <span></span>
+                  <button id="backdrop-clear" type="button">Clear Image</button>
+                  <span></span>
+                </div>
+                <div class="control-row">
+                  <label>Loaded Image</label>
+                  <span id="backdrop-image-name">None</span>
+                  <span></span>
+                </div>
+                <div class="control-row">
+                  <label>Layer</label>
+                  <span id="backdrop-layer-value">0</span>
+                  <span></span>
+                </div>
+              </div>
+              <hr />
+              <label class="select-row" for="backdrop-render-mode">
+                Render Mode
+                <select id="backdrop-render-mode">
+                  <option value="surface" selected>Surface</option>
+                  <option value="billboard">Billboard</option>
+                  <option value="billboard_perspective">
+                    Billboard (Perspective)
+                  </option>
+                </select>
+              </label>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="backdrop-scale">Scale</label>
+                  <input id="backdrop-scale" type="range" />
+                  <span id="backdrop-scale-value">1.00x</span>
+                </div>
+                <div class="control-row">
+                  <label for="backdrop-opacity">Opacity</label>
+                  <input id="backdrop-opacity" type="range" />
+                  <span id="backdrop-opacity-value">1.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="backdrop-rotation">Rotation</label>
+                  <input id="backdrop-rotation" type="range" />
+                  <span id="backdrop-rotation-value">0°</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="backdrop-anchor-x">Anchor X</label>
+                  <input id="backdrop-anchor-x" type="range" />
+                  <span id="backdrop-anchor-x-value">0.00</span>
+                </div>
+                <div class="control-row">
+                  <label for="backdrop-anchor-y">Anchor Y</label>
+                  <input id="backdrop-anchor-y" type="range" />
+                  <span id="backdrop-anchor-y-value">0.00</span>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="control-row">
+                  <label for="backdrop-shift-distance">Shift Distance</label>
+                  <input id="backdrop-shift-distance" type="range" />
+                  <span id="backdrop-shift-distance-value">0</span>
+                </div>
+                <div class="control-row">
+                  <label for="backdrop-shift-angle">Shift Angle</label>
+                  <input id="backdrop-shift-angle" type="range" />
+                  <span id="backdrop-shift-angle-value">0°</span>
+                </div>
+              </div>
+            </div>
+          </details>
+        </aside>
+      </div>
+    </div>
+
+    <script type="module" src="/demo.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>massive-sprites logical graph demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page-top: #e7f0f8;
+        --page-bottom: #c9d5e6;
+        --panel-bg: rgba(250, 254, 255, 0.7);
+        --panel-border: rgba(15, 23, 42, 0.2);
+        --panel-shadow: rgba(15, 23, 42, 0.22);
+        --text: #1b1f2a;
+        --muted: #4d5c72;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        font-family: 'Noto Sans JP', sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(900px 520px at 14% 8%, #ffffffcc, transparent 58%),
+          linear-gradient(145deg, var(--page-top), var(--page-bottom));
+      }
+
+      .app-shell {
+        position: fixed;
+        inset: 0;
+      }
+
+      #main-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: black;
+      }
+
+      .overlay-panel {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: min(72rem, calc(100% - 2rem));
+        padding: 0.9rem 1.1rem;
+        border-radius: 0.9rem;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        backdrop-filter: blur(0.2rem);
+        box-shadow: 0 0.75rem 2.5rem var(--panel-shadow);
+        display: grid;
+        gap: 0.9rem;
+        z-index: 2;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .panel-kicker {
+        margin: 0;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .panel-title {
+        margin: 0.2rem 0 0;
+        font-size: clamp(1.1rem, 1vw + 1rem, 1.6rem);
+        letter-spacing: 0.01em;
+      }
+
+      .panel-intro {
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.4;
+      }
+
+      .panel-actions {
+        display: grid;
+        gap: 0.6rem;
+        grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem);
+        align-items: start;
+      }
+
+      .panel-column {
+        display: grid;
+        gap: 0.6rem;
+      }
+
+      .control-tile {
+        margin: 0;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.6rem;
+        border: 1px solid var(--panel-border);
+        background: rgba(255, 255, 255, 0.55);
+        display: grid;
+        gap: 0.45rem;
+        font-size: 0.85rem;
+      }
+
+      .tracking-grid {
+        display: grid;
+        gap: 0.4rem;
+        font-size: 0.82rem;
+      }
+
+      .tracking-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+
+      .tracking-key {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .tracking-value {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .control-label {
+        font-weight: 600;
+      }
+
+      .control-value {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .control-tile select,
+      .control-tile input[type='range'] {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .control-tile select {
+        padding: 0.35rem 0.4rem;
+        border-radius: 0.4rem;
+        border: 1px solid rgba(40, 46, 60, 0.25);
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--text);
+      }
+
+      .control-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+      }
+
+      .control-button {
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border-radius: 0.55rem;
+        border: 1px solid rgba(40, 46, 60, 0.25);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .control-button:hover {
+        background: rgba(255, 255, 255, 0.98);
+      }
+
+      .control-button:active {
+        transform: translateY(1px);
+      }
+
+      @media (max-width: 720px) {
+        .overlay-panel {
+          top: 0.75rem;
+          width: calc(100% - 1.5rem);
+          padding: 0.75rem 0.85rem;
+        }
+
+        .panel-actions {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <canvas id="main-canvas"></canvas>
+      <aside class="overlay-panel panel-top" id="control-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Controls</p>
+            <h1 class="panel-title">massive-sprites logical graph demo</h1>
+            <p class="panel-intro">
+              Transparent control surface for quick camera and animation tweaks.
+            </p>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <div class="panel-column panel-left">
+            <label class="control-tile">
+              <span class="control-label">Car Count</span>
+              <input
+                id="car-count"
+                type="range"
+                min="1"
+                max="1000"
+                step="1"
+                value="2"
+              />
+              <span class="control-value" id="car-count-value">2 cars</span>
+            </label>
+            <div class="control-tile">
+              <span class="control-label">Waypoints</span>
+              <label class="control-checkbox">
+                <input id="waypoints-toggle" type="checkbox" checked />
+                Show waypoints
+              </label>
+            </div>
+            <button class="control-button" id="track-all-cars" type="button">
+              Track All Cars (Sprite swarm)
+            </button>
+            <button class="control-button" id="reset-view" type="button">
+              Reset View
+            </button>
+          </div>
+          <div class="panel-column panel-right">
+            <div class="control-tile">
+              <span class="control-label">Tracking</span>
+              <span class="control-value" id="tracking-status"
+                >Not tracking</span
+              >
+              <button class="control-button" id="clear-tracking" type="button">
+                Clear Tracking
+              </button>
+              <div class="tracking-grid">
+                <div class="tracking-row">
+                  <span class="tracking-key">Sprite ID</span>
+                  <span class="tracking-value" id="tracking-sprite-id">-</span>
+                </div>
+                <div class="tracking-row">
+                  <span class="tracking-key">Car ID</span>
+                  <span class="tracking-value" id="tracking-car-id">-</span>
+                </div>
+                <div class="tracking-row">
+                  <span class="tracking-key">Element</span>
+                  <span class="tracking-value" id="tracking-element-index"
+                    >-</span
+                  >
+                </div>
+                <div class="tracking-row">
+                  <span class="tracking-key">Image</span>
+                  <span class="tracking-value" id="tracking-image-id">-</span>
+                </div>
+                <div class="tracking-row">
+                  <span class="tracking-key">World</span>
+                  <span class="tracking-value" id="tracking-world">-</span>
+                </div>
+                <div class="tracking-row">
+                  <span class="tracking-key">Canvas</span>
+                  <span class="tracking-value" id="tracking-canvas">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <script type="module" src="/index.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "demo1",
+  "version": "1.0.0",
+  "description": "Demo web pages for massive-sprites browser functionality",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev2": "echo \"demo1 does not have dev2 rule.\"",
+    "build": "vite build",
+    "test": "vitest run",
+    "pack": "echo \"demo1 does not have pack rule.\""
+  },
+  "dependencies": {
+    "massive-sprites": "*"
+  },
+  "devDependencies": {
+    "prettier-max": ">=1.14.0",
+    "screw-up": ">=1.26.0",
+    "typescript": ">=5.0.0",
+    "vite": ">=5.0.0",
+    "vitest": ">=1.0.0"
+  }
+}
