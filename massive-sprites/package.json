@@ -45,7 +45,7 @@
   "devDependencies": {
     "@types/node": ">=20.0.0",
     "emsdk-env": ">=0.10.0",
-    "funcity-cli": ">=1.4.0",
+    "funcity-cli": ">=1.5.0",
     "jsdom": ">=28.1.0",
     "prettier-max": ">=1.14.0",
     "screw-up": ">=1.26.0",
