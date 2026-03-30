@@ -11,6 +11,9 @@ A WebGL / WASM library for rendering, moving, and updating large numbers of spri
 
 [(Japanese language is here/日本語はこちら)](./README_ja.md)
 
+> Please note that this English version of the document was machine-translated and then partially edited, so it may contain inaccuracies.
+> We welcome pull requests to correct any errors in the text.
+
 ## What is this?
 
 (Documents under constructing!)
@@ -274,7 +277,9 @@ That API is intended for cases where you want to manage the WebGL context and re
 ## Preparing Texture Atlases and Registering Images / Text
 
 massive-sprites treats text rendering as images as well.
-Images and text are not attached directly to sprites. Instead, they are first registered in a texture atlas and then referenced from sprites.
+Images and text are not attached directly to sprites. Instead, they are first registered in a [Texture atlas (wikipedia)](https://en.wikipedia.org/wiki/Texture_atlas) and then referenced from sprites.
+
+[![Texture atlas (wikipedia)](https://upload.wikimedia.org/wikipedia/commons/7/77/Tile_set.png)](https://en.wikipedia.org/wiki/Texture_atlas)
 
 A texture atlas is a feature that packs many images into one large texture.
 Images inside the same atlas can be rendered very efficiently, so it is better to register related assets in the same atlas whenever possible.
@@ -285,14 +290,10 @@ Create atlases with `allocateAtlas()`, then add contents with `registerImage()` 
 ```typescript
 // Create a texture atlas
 const atlasId = renderer.allocateAtlas({
-  widthPixel: 2048,    // Atlas width and height
+  widthPixel: 2048,    // Atlas width and height (default: 2048x2048)
   heightPixel: 2048,
   paddingPixel: 2,     // Padding between packed images
-  textureSampling: {   // Texture sampling options
-    minFilter: 'linearMipmapLinear',
-    magFilter: 'linear',
-    maxAnisotropy: 4,
-  },
+  textureSampling: MAX_TEXTURE_SAMPLING_OPTIONS,   // Texture sampling options
   pickMask: { enabled: true, alphaThreshold: 1 },  // Picking mask options
 });
 
@@ -330,6 +331,19 @@ await renderer.registerTextGlyph(
 );
 ```
 
+The default size (`widthPixel`, `heightPixel`) for `allocateAtlas()` is 2048x2048.
+It will still work if you register an image larger than this size, but in that case, the image will be automatically split internally.
+
+For details on texture sampling options, see the next section.
+The example above uses a preset definition, and the following values can be used:
+
+|Preset Name|Details|
+|:---|:---|
+|`DEFAULT_TEXTURE_SAMPLING_OPTIONS`|Default sampling factor. Intermediate performance.|
+|`MIN_TEXTURE_SAMPLING_OPTIONS`|Minimum sampling factor. Intended for particularly low-performance GPUs.|
+|`MAX_TEXTURE_SAMPLING_OPTIONS`|Maximum sampling factor.|
+
+Translated with DeepL.com (free version)
 Both images and text are referenced by `imageId`.
 In other words, text glyphs are also handled as "a kind of image."
 
@@ -350,18 +364,7 @@ Text size can be specified in two ways:
 
 ### Texture Atlas Options
 
-`allocateAtlas()` supports the following options:
-
-- `widthPixel`
-- `heightPixel`
-- `paddingPixel`
-- `uvInsetPixel`
-- `maxPages`
-- `defaultImageResize`
-- `textureSampling`
-- `pickMask`
-
-The following parameters are especially important:
+Although `allocateAtlas()` allows you to specify optional parameters related to texture quality and precision, here are some of the most common ones:
 
 - `pickMask`: Enables picking that respects transparent pixels. It requires extra mask data, so it is optional.
 - `paddingPixel`: Spacing between images. Used to avoid filter bleed.
@@ -397,7 +400,7 @@ if (pickResult?.kind === 'sprite') {
 }
 ```
 
-This is useful when you want precise picking based on visible pixels instead of the full rectangle, such as for map pins or human silhouettes.
+This is useful when you want precise picking based on visible pixels instead of the full rectangle, such as for map pins or object silhouettes.
 
 `paddingPixel`, `uvInsetPixel`, and `textureSampling` are parameters for balancing rendering quality and atlas efficiency.
 They matter especially when you render with downscaling or mipmaps.
@@ -413,8 +416,6 @@ For example, if you want labels and icons to stay smooth while being downscaled,
 ```typescript
 // Create an atlas for labels and icons
 const atlasId = renderer.allocateAtlas({
-  widthPixel: 2048,
-  heightPixel: 2048,
   paddingPixel: 4,   // Leave enough space between images
   uvInsetPixel: 1,   // Sample slightly inward from texture edges
   textureSampling: {
@@ -442,6 +443,8 @@ A sprite consists of a base coordinate plus an array of child sprite elements ha
 - Each sprite element can have an `imageId`, render mode, scale, rotation, anchor, offset, border, leader line, and more.
 - By putting multiple elements in one sprite, you can manage an icon body, label, warning marker, and helper line as a single unit.
 
+![Sprite and sprite elements](images/sprite-1.png)
+
 ```typescript
 // Register a sprite
 const spriteId = await renderer.addSprite(
@@ -451,16 +454,16 @@ const spriteId = await renderer.addSprite(
     opacity: { value: 1 },  // Opacity (0.0 to 1.0)
     elements: [             // Element definitions inside the sprite
       {
-        imageId: 'car',          // Image ID
+        imageId: 'earth',        // Image ID
         mode: 'surface',         // Render mode
         scale: { value: 0.22 },  // Scale
       },
       {
-        imageId: 'label',        // Image ID (text ID)
+        imageId: 'label-8',      // Image ID (text ID)
         mode: 'billboard',       // Render mode
-        originLocation: { index: 0, useResolvedAnchor: true },
+        originLocation: { index: 0 },
         shiftDistance: { value: 36 },
-        shiftAngleDeg: { value: 90 },
+        shiftAngleDeg: { value: 130 },
         scale: { value: 0.18 },
       },
     ],
@@ -471,8 +474,12 @@ const spriteId = await renderer.addSprite(
 
 ## Placement and Update Semantics
 
-Initial placement uses `ObjectPlacementValue<T>`, while updates use `ObjectUpdateValue<T>`.
-Both can carry interpolation information together with the value itself.
+To update a sprite or sprite element that has already been placed, use `updateSprite()`.
+Each parameter can accept the value `undefined`.
+You can perform a partial update by leaving parameters you do not want to change as undefined and specifying only the values you want to update.
+Additionally, to explicitly remove a parameter (such as to revert it to its default value), specify `null`.
+
+The following are examples of changing specific parameter values or updating specific sprite elements:
 
 ```typescript
 // Update a sprite
@@ -516,17 +523,23 @@ Important rules:
 - `visibilityDistance === undefined`: keep the current value.
 - `visibilityDistance === null`: disable pseudo LOD.
 
-Sprite IDs are stable public IDs and do not change even if other sprites are removed.
-Element indices, on the other hand, are affected by compaction, so after removing an element the caller must recompute `originLocation.index` if needed.
-
-Note: `SpriteUpdate.elements[]` is limited to 8 elements. The exact element-index behavior may change in the future.
+Note: `SpriteUpdate.elements[]` can hold a maximum of 8 elements, and even if intermediate elements are removed, the remaining elements will not automatically shift to fill the gap.
 
 ## Layers and Draw Order
 
 Draw order is primarily controlled by layer IDs on sprites and polylines.
 Sprite elements can also be ordered within the same sprite by their `order` value.
 
-![Layers and draw order](images/layer-order.png)
+The sprites in the example image below are all placed on the same layer ID.
+However, since the rendering order is determined by the distance of each sprite element from the camera, they appear to be rendered correctly.
+
+![Layers and Drawing Order 1](images/layer-order-1.png)
+
+In contrast, in the example below, the layer ID for the label has been increased so that the label is always drawn in the foreground:
+
+![Layers and Drawing Order 2](images/layer-order-2.png)
+
+Whether this rendering approach is appropriate will depend on your application.
 
 Layer IDs range from 0 to 31. Order values range from 0 to 7, and duplicates are allowed within one sprite.
 
@@ -538,13 +551,13 @@ const spriteId = await renderer.addSprite(
     sy: { value: 80 },
     elements: [
       {
-        imageId: 'car',
+        imageId: 'earth',
         mode: 'surface',
         layer: 0,
         order: 0,
       },
       {
-        imageId: 'label',
+        imageId: 'label-8',
         mode: 'billboard',
         layer: 0,
         order: 1,
@@ -575,16 +588,37 @@ Sprite elements support the following three render modes:
 - `billboard`: Billboard mode. Always faces the camera. Useful for HUD-like labels and icons.
 - `billboard_perspective`: Perspective adjusted billboard mode. Keeps facing the camera but also expresses perspective. It applies an angle correction based on position.
 
-![Render mode comparison](images/render-modes.png)
+The following shows Surface Mode:
 
-`surface` renders sprites like stickers attached to a plane.
+![Render Mode Comparison 1](images/render-mode-1.png)
 
-`billboard`, in contrast, always faces the camera.
+That said, it looks like a standard rendering. However, if we lower the camera to the horizon:
+
+![Render Mode Comparison 2](images/render-mode-2.png)
+
+The Earth and the celestial sphere are rendered “flat.”
+Sprite elements in Surface Mode are rendered as if they were stuck to the horizon, like stickers.
+
+On the other hand, please note that the labels associated with these objects (such as `Label-8`) are always rendered the same way, regardless of the camera’s field of view.
+This is because the rendering mode for labels is set to Billboard Mode.
+
+Billboard Mode always faces the camera directly.
 Because it remains front-facing regardless of camera angle, visibility is improved.
 This is commonly used for HUD-like identification icons.
 
 If an image looks correct in `surface` but loses the intended directional feeling in `billboard`, you can use `billboard_perspective`.
-For example, if the image contains an arrow, this mode automatically rotates it based on the current camera view, so the arrow still points in a reasonable direction while keeping the readability of a billboard.
+In `billboard` mode, all sprites always face the same direction (upward):
+
+![Render Mode Comparison 3](images/render-mode-3.png)
+
+In `billboard_perspective` mode, the orientation of sprites is automatically adjusted based on their relative angle to the camera:
+
+![Render Mode Comparison 4](images/render-mode-4.png)
+
+For example, if an image contains an arrow to indicate direction, the image rotates automatically based on the current camera view. This ensures the arrow points in the correct direction while remaining facing forward like in `billboard` mode, resulting in better visibility.
+
+Additionally, the angle correction in this mode affects the angle calculation of descendant elements when dealing with parent-child relationships, as described later.
+In the example above, please note that the label’s leader line is drawn so that it always extends from the parent element at the same angle.
 
 ## Anchors and Origin Points
 

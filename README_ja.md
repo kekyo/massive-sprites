@@ -274,7 +274,9 @@ await renderer.initializeScope(async () => {
 ## テクスチャアトラスの準備と画像・テキストの登録
 
 massive-spritesでは、テキストの描画も画像として扱います。
-画像やテキストは直接スプライトに貼るのではなく、まずテクスチャアトラスに登録して参照出来るようにします。
+画像やテキストは直接スプライトに貼るのではなく、まず [テクスチャアトラス (wikipedia)](https://en.wikipedia.org/wiki/Texture_atlas) に登録して参照出来るようにします。
+
+[![Texture atlas (wikipedia)](https://upload.wikimedia.org/wikipedia/commons/7/77/Tile_set.png)](https://en.wikipedia.org/wiki/Texture_atlas)
 
 テクスチャアトラスとは、多くの画像を一枚の大きなテクスチャに配置する機能です。
 テクスチャアトラス内の画像は、非常に短時間にレンダリング処理が可能になるため、用途が近しい画像を同じアトラスに登録することで、効率よくレンダリング出来るようになります。
@@ -285,14 +287,10 @@ massive-spritesでは、テキストの描画も画像として扱います。
 ```typescript
 // テクスチャアトラスを生成する
 const atlasId = renderer.allocateAtlas({
-  widthPixel: 2048,    // アトラス全体の幅と高さ
+  widthPixel: 2048,    // アトラス全体の幅と高さ (デフォルト: 2048x2048)
   heightPixel: 2048,
   paddingPixel: 2,     // 画像を並べる場合に空けるピクセル数
-  textureSampling: {   // テクスチャサンプリングオプション
-    minFilter: 'linearMipmapLinear',
-    magFilter: 'linear',
-    maxAnisotropy: 4,
-  },
+  textureSampling: MAX_TEXTURE_SAMPLING_OPTIONS,   // テクスチャサンプリングオプション
   pickMask: { enabled: true, alphaThreshold: 1 },  // ピッキングマスクオプション
 });
 
@@ -329,6 +327,18 @@ await renderer.registerTextGlyph(
 );
 ```
 
+`allocateAtlas()` のデフォルトのサイズ (`widthPixel`, `heightPixel`) は、2048x2048です。
+このサイズを超える画像を登録する場合でも機能しますが、その場合は内部で画像が自動的に分割されます。
+
+テクスチャサンプリングオプションの詳細は、次節を参照して下さい。
+上記の例ではプリセット定義を使用しており、以下の値を使うことができます:
+
+|プリセット名|詳細|
+|:---|:---|
+|`DEFAULT_TEXTURE_SAMPLING_OPTIONS`|デフォルトのサンプリング係数。中間的な性能。|
+|`MIN_TEXTURE_SAMPLING_OPTIONS`|最小のサンプリング係数。特に低性能なGPUを想定。|
+|`MAX_TEXTURE_SAMPLING_OPTIONS`|最高のサンプリング係数。|
+
 画像とテキストは、どちらも `imageId` (画像ID) で参照されます。
 つまり、テキストグリフも「画像の一種」として扱われます。
 
@@ -349,18 +359,7 @@ await renderer.registerTextGlyph(
 
 ### テクスチャアトラスオプション
 
-`allocateAtlas()` では以下を調整出来ます:
-
-- `widthPixel`
-- `heightPixel`
-- `paddingPixel`
-- `uvInsetPixel`
-- `maxPages`
-- `defaultImageResize`
-- `textureSampling`
-- `pickMask`
-
-以下のパラメータは特に重要です:
+`allocateAtlas()` ではテクスチャの品質や精度に関するオプションパラメータを指定出来ますが、代表的なものを示します:
 
 - `pickMask`: 透明ピクセルを考慮したピッキング判定を実現します。追加マスクデータが必要になるため、オプション扱いです。
 - `paddingPixel`: 画像間の余白です。フィルタブリード対策に使用します。
@@ -396,7 +395,7 @@ if (pickResult?.kind === 'sprite') {
 }
 ```
 
-ピン画像や人物シルエットのように、矩形全体ではなく可視部分だけを正確に拾いたい場合に有効です。
+ピン画像や物体シルエットのように、矩形全体ではなく可視部分だけを正確に拾いたい場合に有効です。
 
 `paddingPixel`、`uvInsetPixel`、`textureSampling` は、描画品質とアトラス効率のバランスを取るためのパラメータです。
 特に、縮小表示や mipmap を使うケースでは見た目に直結します。
@@ -412,8 +411,6 @@ if (pickResult?.kind === 'sprite') {
 ```typescript
 // ラベルやアイコンを格納するアトラスを生成する
 const atlasId = renderer.allocateAtlas({
-  widthPixel: 2048,
-  heightPixel: 2048,
   paddingPixel: 4,   // 画像間の余白を十分に確保する
   uvInsetPixel: 1,   // 境界サンプリングを少し内側へ寄せる
   textureSampling: {
@@ -441,6 +438,8 @@ const atlasId = renderer.allocateAtlas({
 - 各スプライトエレメントは `imageId`、描画モード、スケール、回転、アンカー、オフセット、ボーダー、引き出し線などを持てます。
 - 1 つのスプライトに複数のスプライトエレメントを持たせることで、アイコン本体、ラベル、警告マーク、補助線などを一体で管理出来ます。
 
+![Sprite and sprite elements](images/sprite-1.png)
+
 ```typescript
 // スプライトを登録する
 const spriteId = await renderer.addSprite(
@@ -450,16 +449,16 @@ const spriteId = await renderer.addSprite(
     opacity: { value: 1 },  // 不透明度 (0.0〜1.0)
     elements: [  // スプライト内のエレメント群の定義
       {
-        imageId: 'car',          // 画像ID
+        imageId: 'earth',        // 画像ID
         mode: 'surface',         // 描画モード
         scale: { value: 0.22 },  // スケール
       },
       {
-        imageId: 'label',        // 画像ID (テキストID)
+        imageId: 'label-8',      // 画像ID (テキストID)
         mode: 'billboard',       // 描画モード
-        originLocation: { index: 0, useResolvedAnchor: true },
+        originLocation: { index: 0 },
         shiftDistance: { value: 36 },
-        shiftAngleDeg: { value: 90 },
+        shiftAngleDeg: { value: 130 },
         scale: { value: 0.18 },  // スケール
       },
     ],
@@ -470,8 +469,13 @@ const spriteId = await renderer.addSprite(
 
 ## 配置と更新のセマンティクス
 
-初期配置では `ObjectPlacementValue<T>`、更新では `ObjectUpdateValue<T>` を使います。
-どちらも値本体に加えて、補間情報を一緒に持てます。
+既に配置されているスプライトやスプライトエレメントを更新する場合は、 `updateSprite()` を使用します。
+
+各パラメータは「未指定 (`undefined`)」を受け付けることができます。
+現在のまま変更したくないパラメータは未指定として、更新したい値のみ指定することで、部分更新を行うことができます。
+また、パラメータを明示的に削除（デフォルト値に戻すなど）する場合は、 `null` を指定します。
+
+以下は、部分的なパラメータ値の変更や、部分的なスプライトエレメントの更新の例です:
 
 ```typescript
 // スプライトを更新する
@@ -515,17 +519,23 @@ await renderer.updateSprite(
 - `visibilityDistance === undefined`: 現在値を維持する。
 - `visibilityDistance === null`: 疑似 LOD を無効化する。
 
-スプライト ID は安定した公開 ID であり、他のスプライトを削除しても変わりません。
-一方で、要素インデックスは compaction の影響を受けるため、要素削除後は `originLocation.index` の再計算を呼び出し側で行う必要があります。
-
-注意: `SpriteUpdate.elements[]` は最大8要素です。また、要素インデックスの仕様は将来的に変更される可能性があります。
+注意: `SpriteUpdate.elements[]` は最大8要素で、中間要素が削除されても、自動的に詰められることはありません。
 
 ## レイヤーと描画順
 
 スプライトやポリラインは、レイヤーIDによって大きく描画順が決定されます。
 また、スプライトエレメント同士はオーダー値によっても描画順が決定されます。
 
-![レイヤーと描画順](images/layer-order.png)
+以下の画像例のスプライト群は、全て同じレイヤーIDに配置されています。
+しかし、各スプライトエレメントのカメラからの距離に応じて描画順が決定されるので、正しく描画されているように見えます。
+
+![レイヤーと描画順1](images/layer-order-1.png)
+
+一方、以下の例では、ラベルのレイヤーIDを大きくしており、常にラベルが手前に描画されるようになっています:
+
+![レイヤーと描画順2](images/layer-order-2.png)
+
+このような描画が適するかどうかは、あなたのアプリケーションによって異なるでしょう。
 
 レイヤーIDは0〜31までの値を取ります。オーダーは0〜7ですが、スプライト内で重複していても構いません。
 
@@ -537,13 +547,13 @@ const spriteId = await renderer.addSprite(
     sy: { value: 80 },
     elements: [  // スプライト内のエレメント群の定義
       {
-        imageId: 'car',
+        imageId: 'earth',
         mode: 'surface',
         layer: 0,            // レイヤーID
         order: 0,            // オーダー
       },
       {
-        imageId: 'label',
+        imageId: 'label-8',
         mode: 'billboard',
         layer: 0,            // レイヤーID
         order: 1,            // オーダー
@@ -574,16 +584,37 @@ const spriteId = await renderer.addSprite(
 - `billboard`: ビルボードモード。常にカメラへ正対します。HUD 的なラベルやアイコンに使用します。
 - `billboard_perspective`: パースペクティブ補正付きビルボードモード。カメラ正対を保ちながら遠近感を表現します。正対した画像に、位置による角度補正を適用します。
 
-![描画モードの比較](images/render-modes.png)
+以下はサーフェイスモードです:
 
-`surface` は、平面にステッカーのようにスプライトが張り付くレンダリングが行われます。
+![描画モードの比較1](images/render-mode-1.png)
 
-それに対して `billboard` はカメラに常に正対します。
+と言っても、ごく普通に描画されているように見えます。ここでカメラを地平にまで下ろしてくると:
+
+![描画モードの比較2](images/render-mode-2.png)
+
+地球や星座儀が「平たく」描画されます。
+サーフェイスモードのスプライトエレメントは、ステッカーのように地平に張り付くように描画されます。
+
+一方で、これらのオブジェクトに付随するラベル（`Label-8`など）は、カメラの画角に依らず、常に同じように描画されている事に注意して下さい。
+これは、ラベルの描画モードが、ビルボードモードに設定されているからです。
+
+ビルボードモードはカメラに常に正対します。
 カメラの平面に対する角度に関わらず、常に正対して表示されるため、視認性が上がります。
 一般的に、ヘッドアップディスプレイ (HUD) の識別用アイコンを描画するために使用されます。
 
 `surface` の場合には正しい方向を向いていたのに、 `billboard` にすると方向が正しくない場合は、 `billboard_perspective` を使用する事が出来ます。
+`billboard` では、全てのスプライトが、常に同じ方向（上方向）を向いていますが:
+
+![描画モードの比較3](images/render-mode-3.png)
+
+`billboard_perspective` では、スプライトの向きが、カメラからの相対的な角度によって自動的に調整されます:
+
+![描画モードの比較4](images/render-mode-4.png)
+
 例えば、画像が矢印を含んでいて方向を表現する場合、現在のカメラ視野を考慮して自動的に画像が回転するため、矢印がそれらしい方向を向きつつ、 `billboard` のように正対しているので視認性も高くなります。
+
+また、このモードによる角度補正は、後述の親子関係のエレメントの場合に、子孫エレメントの角度計算にも影響を与えます。
+上の例では、ラベルの引き出し線が、常に親エレメントの同じ角度から引き出されるように描画されている事に注目にして下さい。
 
 ## アンカーと基準点
 
